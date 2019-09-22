@@ -28,7 +28,7 @@ set(IPTV_HEADERS src/client.h
                  src/PVRIptvData.h
                  src/ArchiveConfig.h)
 
-addon_version(pvr.iptvarchive IPTV)
+addon_version(pvr.iptvsimple IPTV)
 add_definitions(-DIPTV_VERSION=${IPTV_VERSION})
 
 build_addon(pvr.iptvsimple IPTV DEPLIBS)
