@@ -76,20 +76,35 @@ void CArchiveConfig::ReadSettings(CHelper_libXBMC_addon *XBMC)
 std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, const std::string &url) const
 {
     const time_t dateTimeNow = std::time(0);
-    struct tm dateTime = {0};
-    localtime_r(&dateTimeEpg, &dateTime);
-    std::string fmt = (url + m_sUrlFormat);
-    FormatTime('Y', &dateTime, fmt);
-    FormatTime('m', &dateTime, fmt);
-    FormatTime('d', &dateTime, fmt);
-    FormatTime('H', &dateTime, fmt);
-    FormatTime('M', &dateTime, fmt);
-    FormatTime('S', &dateTime, fmt);
+    tm* dateTime = localtime(&dateTimeEpg);
+
+    // check if livestream URL contains user-agent and other http headers
+    // in that case "m_sUrlFormat" part of the "Archive URL" should be inserted just before pipe ("|") character
+    size_t index = url.find_first_of('|');
+    std::string url_part1;
+    std::string url_part2;
+    std::string fmt;
+
+    if (index != std::string::npos) {
+        url_part1 = url.substr(0, index);
+        url_part2 = url.substr(index, url.length());
+        fmt = (url_part1 + m_sUrlFormat + url_part2);
+    }
+    else { fmt = (url + m_sUrlFormat); }
+    
+    //
+    //std::string fmt = (url + m_sUrlFormat);
+    FormatTime('Y', dateTime, fmt);
+    FormatTime('m', dateTime, fmt);
+    FormatTime('d', dateTime, fmt);
+    FormatTime('H', dateTime, fmt);
+    FormatTime('M', dateTime, fmt);
+    FormatTime('S', dateTime, fmt);
     FormatUtc("{utc}", dateTimeEpg, fmt);
     FormatUtc("${start}", dateTimeEpg, fmt);
     FormatUtc("{lutc}", dateTimeNow, fmt);
-    FormatOffset(dateTimeNow - dateTimeEpg, fmt);
     m_XBMC->Log(LOG_DEBUG, "CArchiveConfig::FormatDateTime - \"%s\"", fmt.c_str());
+    
     return fmt;
 }
 
