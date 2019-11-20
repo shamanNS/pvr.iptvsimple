@@ -305,7 +305,7 @@ bool PVRIptvData::LoadEPG(time_t iStart, time_t iEnd)
   {
     xmlDoc.parse<0>(buffer);
   }
-  catch(parse_error &p)
+  catch(parse_error& p)
   {
     XBMC->Log(LOG_ERROR, "Unable parse EPG XML: %s", p.what());
     return false;
@@ -332,8 +332,11 @@ bool PVRIptvData::LoadEPG(time_t iStart, time_t iEnd)
       continue;
 
     bool foundChannel = false;
+    bool haveDisplayNames = false;
     for (xml_node<>* pDisplayNameNode = pChannelNode->first_node("display-name"); pDisplayNameNode; pDisplayNameNode = pDisplayNameNode->next_sibling("display-name"))
     {
+      haveDisplayNames = true;
+
       const std::string strName = pDisplayNameNode->value();
       if (FindChannel(epgChannel.strId, strName))
       {
@@ -341,6 +344,10 @@ bool PVRIptvData::LoadEPG(time_t iStart, time_t iEnd)
         epgChannel.strNames.emplace_back(strName);
       }
     }
+
+    // If there are no display names just check if the id matches a channel
+    if (!haveDisplayNames && FindChannel(epgChannel.strId, ""))
+      foundChannel = true;
 
     if (!foundChannel)
       continue;
@@ -425,7 +432,8 @@ bool PVRIptvData::LoadEPG(time_t iStart, time_t iEnd)
     GetNodeValue(pChannelNode, "date", dateString);
     if (!dateString.empty())
     {
-      if (std::regex_match(dateString, std::regex("^[1-9][0-9][0-9][0-9][0-9][1-9][0-9][1-9]")))
+      static const std::regex dateRegex("^[1-9][0-9][0-9][0-9][0-9][1-9][0-9][1-9]");
+      if (std::regex_match(dateString, dateRegex))
         entry.firstAired = static_cast<time_t>(ParseDateTime(dateString));
 
       std::sscanf(dateString.c_str(), "%04d", &entry.iYear);
@@ -540,10 +548,12 @@ bool PVRIptvData::ParseXmltvNsEpisodeNumberInfo(const std::string& episodeNumber
 
 bool PVRIptvData::ParseOnScreenEpisodeNumberInfo(const std::string& episodeNumberString, PVRIptvEpgEntry& entry)
 {
-  const std::string text = std::regex_replace(episodeNumberString, std::regex("[ \\txX_\\.]"), "");
+  static const std::regex numRegex("[ \\txX_\\.]");
+  const std::string text = std::regex_replace(episodeNumberString, numRegex, "");
 
   std::smatch match;
-  if (std::regex_match(text, match, std::regex("^[sS]([0-9][0-9]*)[eE][pP]?([0-9][0-9]*)$")))
+  static const std::regex epRegex("^[sS]([0-9][0-9]*)[eE][pP]?([0-9][0-9]*)$");
+  if (std::regex_match(text, match, epRegex))
   {
     if (match.size() == 3)
     {
@@ -702,7 +712,10 @@ bool PVRIptvData::LoadPlayList(void)
 
         // If remote type URL Encode and append as when built from channel name it would be missing
         if (m_logoPathType == REMOTE_PATH_TYPE && logoSetFromChannelName)
-          tmpChannel.strTvgLogo = UrlEncode(tmpChannel.strTvgLogo) + CHANNEL_LOGO_EXTENSION;
+          tmpChannel.strTvgLogo = UrlEncode(tmpChannel.strTvgLogo);
+
+        if (tmpChannel.strTvgLogo.find("://") == std::string::npos && !StringUtils::EndsWithNoCase(tmpChannel.strTvgLogo, ".png"))
+          tmpChannel.strTvgLogo += CHANNEL_LOGO_EXTENSION;
 
         if (strTvgShift.empty())
         {
@@ -876,7 +889,7 @@ bool PVRIptvData::LoadGenres(void)
   {
     xmlDoc.parse<0>(buffer);
   }
-  catch (parse_error &p)
+  catch (parse_error& p)
   {
     return false;
   }
